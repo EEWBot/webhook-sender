@@ -25,7 +25,7 @@ use crate::limiter::{Limiter, Status};
 use crate::request::{JobReceiver, JobSender};
 
 const ALPN_H2: &str = "h2";
-const HTTP2_SETTINGS_MAX_CONCURRENT_STREAMS: usize = 90;
+const HTTP2_SETTINGS_MAX_CONCURRENT_STREAMS: usize = 98;
 const CLOUDFLARE_HTTP2_REQUEST_LIMIT: usize = 9990;
 
 async fn setup_connection(
@@ -209,11 +209,11 @@ pub async fn sender(
 
                 request_count += 1;
 
-                let (response, mut respond) = match client.send_request(h2_header, last_request) {
+                let (response, mut respond) = match client.send_request(h2_header, false) {
                     Ok(v) => v,
                     Err(e) => {
                         retry_tx.send(request.into_retry()).await.unwrap();
-                        return Err(e).context("Failed to send Request Header");
+                        return Err(e).context("Failed to send Request Header, Retrying...");
                     },
                 };
 
@@ -221,7 +221,7 @@ pub async fn sender(
 
                 if let Err(e) = respond.send_data(h2_body, true) {
                     retry_tx.send(request.into_retry()).await.unwrap();
-                    return Err(e).context("Failed to send Request Body");
+                    return Err(e).context("Failed to send Request Body, Retrying...");
                 };
 
                 let retry_tx = retry_tx.clone();

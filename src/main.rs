@@ -17,7 +17,7 @@ struct Cli {
     #[clap(long, env, value_delimiter = ',', default_value = "0.0.0.0")]
     retry_ips: Vec<Ipv4Addr>,
 
-    #[clap(long, env, default_value_t = 4)]
+    #[clap(long, env, default_value_t = 1)]
     multiplier: u8,
 }
 
@@ -42,41 +42,41 @@ async fn main() {
             .await
             .expect("failed to initialize connection");
 
-    let targets: Vec<http::Uri> = include_str!("../targets.txt")
-        .split('\n')
-        .filter_map(|v| v.parse().ok())
-        .collect();
-
-    std::thread::sleep(std::time::Duration::from_secs(3));
-
-    loop {
-        tracing::info!("Start");
-
-        let body = bytes::Bytes::from(format!(
-            "{{\"content\": \"<@349168429980188672> もげもげきゅんっ！\"}}"
-        ));
-
-        let context = Arc::new(request::Context {
-            retry_limit: 3,
-            body,
-        });
-
-        for _ in 0..4 {
-            for target in &targets {
-                // let target = targets.choose(&mut rng).unwrap();
-
-                let request = request::Request {
-                    context: context.clone(),
-                    retry_count: 0,
-                    target: target.to_string(),
-                };
-
-                sender.send(request).await.unwrap();
-            }
-        }
-
-        drop(context);
-
-        std::thread::sleep(std::time::Duration::from_secs(60));
-    }
+    // let mut targets: Vec<http::Uri> = include_str!("../targets.txt")
+    //     .split('\n')
+    //     .filter_map(|v| v.parse().ok())
+    //     .collect();
+    // targets.push("https://ptb.discord.com/api/webhooks/1231506323150209096/Q7zFmcmy8rQ8KTrGv2esqAtUxom13ir4GmBNN0TqpQjeEWXwF51xQzmDUzC6UGhSlqlt".parse().unwrap());
+    //
+    // std::thread::sleep(std::time::Duration::from_secs(3));
+    //
+    // let mut counter = 0;
+    // loop {
+    //     counter += 1;
+    //
+    //     tracing::info!("Start {counter}");
+    //
+    //     let body = bytes::Bytes::from(format!(
+    //         "{{\"content\": \"<@349168429980188672> もげもげきゅんっ！ {counter}\"}}"
+    //     ));
+    //
+    //     let context = Arc::new(request::Context {
+    //         retry_limit: 3,
+    //         body,
+    //     });
+    //
+    //     for target in &targets {
+    //         let request = request::Request {
+    //             context: context.clone(),
+    //             retry_count: 0,
+    //             target: target.to_string(),
+    //         };
+    //
+    //         sender.send(request).await.unwrap();
+    //     }
+    //
+    //     drop(context);
+    //
+    //     std::thread::sleep(std::time::Duration::from_secs(2));
+    // }
 }
