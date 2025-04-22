@@ -24,7 +24,7 @@ struct AppState {
 
 #[derive(Clone, Debug, Deserialize)]
 struct WebRequest {
-    target: Vec<String>,
+    targets: Vec<String>,
     body: serde_json::Value,
     retry_limit: Option<usize>,
 }
@@ -41,7 +41,7 @@ async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>
             retry_limit: request.retry_limit.unwrap_or(10),
         });
 
-        for target in request.target {
+        for target in request.targets {
             app.sender
                 .send(Request {
                     context: context.clone(),
@@ -71,7 +71,7 @@ pub async fn run(listen: SocketAddr, sender: JobSender, limiter: &'static Limite
     let app = Router::new()
         .route("/", get(root))
         .route("/api/send", post(send))
-        .route("/api/notfounds", post(notfounds))
+        .route("/api/notfounds", get(notfounds))
         .with_state(AppState { sender, limiter });
 
     let listener = TcpListener::bind(listen)
