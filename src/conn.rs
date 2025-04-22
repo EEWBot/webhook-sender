@@ -167,6 +167,11 @@ pub async fn sender(
 
     let mut request_count = 0;
 
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+    headers.insert(USER_AGENT, "WebhookSender/0.1.0".parse().unwrap());
+    headers.insert(HOST, "discord.com".parse().unwrap());
+
     loop {
         let permit = semaphroe.clone().acquire_owned().await.unwrap();
         let last_request = request_count + 1 >= CLOUDFLARE_HTTP2_REQUEST_LIMIT;
@@ -197,10 +202,6 @@ pub async fn sender(
                     Status::Pass => (),
                 }
 
-                let mut headers = HeaderMap::new();
-                headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
-                headers.insert(USER_AGENT, "WebhookSender/0.1.0".parse().unwrap());
-                headers.insert(HOST, "discord.com".parse().unwrap());
 
                 let mut h2_header = Request::builder().method(Method::POST).uri(&request.target).body(()).unwrap();
                 *h2_header.headers_mut() = headers.clone();
