@@ -1,5 +1,4 @@
-use std::net::Ipv4Addr;
-use std::sync::Arc;
+use std::net::{SocketAddr, Ipv4Addr};
 
 use clap::Parser;
 
@@ -8,6 +7,7 @@ mod conn_initializer;
 mod discord;
 mod limiter;
 mod request;
+mod web;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -19,6 +19,9 @@ struct Cli {
 
     #[clap(long, env, default_value_t = 1)]
     multiplier: u8,
+
+    #[clap(long, env, default_value = "0.0.0.0:3000")]
+    listen: SocketAddr,
 }
 
 #[tokio::main]
@@ -37,10 +40,12 @@ async fn main() {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    let (sender, _limiter) =
+    let (sender, limiter) =
         conn_initializer::initialize(&cli.retry_ips, &cli.sender_ips, cli.multiplier)
             .await
             .expect("failed to initialize connection");
+
+    web::run(cli.listen, sender, limiter).await.unwrap();
 
     // let mut targets: Vec<http::Uri> = include_str!("../targets.txt")
     //     .split('\n')

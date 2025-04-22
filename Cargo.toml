@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 async-channel = "2.3.1"
+axum = "0.8.3"
 bytes = "1.10.1"
 clap = { version = "4.5.37", features = ["derive", "env"] }
 h2 = "0.4.9"

@@ -19,8 +19,12 @@ pub struct Limiter {
 }
 
 impl Limiter {
+    pub fn notfounds(&self) -> Vec<String> {
+        self.notfound_set.pin().iter().cloned().collect()
+    }
+
     pub fn current(&self, request: &Request) -> Status {
-        if request.retry_count >= request.context.retry_limit {
+        if request.retry_count > request.context.retry_limit {
             return Status::RetryLimitReached;
         }
 
