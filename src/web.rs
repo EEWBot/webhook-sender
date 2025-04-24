@@ -10,6 +10,7 @@ use axum::{
     routing::{get, post},
 };
 use bytes::Bytes;
+use names::Generator;
 use serde::Deserialize;
 use tokio::net::TcpListener;
 
@@ -33,24 +34,46 @@ async fn notfounds(State(app): State<AppState>) -> Json<Vec<String>> {
     Json(app.limiter.notfounds())
 }
 
+#[axum::debug_handler]
 async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>) -> Response {
-    for request in requests {
-        let body = Bytes::from(request.body.to_string().into_bytes());
-        let context = Arc::new(Context {
-            body,
-            retry_limit: request.retry_limit.unwrap_or(10),
-        });
+    let my_requests = {
+        let mut generator = Generator::default();
 
-        for target in request.targets {
-            app.sender
-                .send(Request {
+        let queuing_id = generator.next().unwrap();
+
+        let mut my_requests = vec![];
+
+        for request in requests {
+            let request_id = generator.next().unwrap();
+            tracing::info!("Queuing {queuing_id}#{request_id}");
+
+            let body = Bytes::from(request.body.to_string().into_bytes());
+            let context = Arc::new(Context {
+                identity: format!("{queuing_id}#{request_id}"),
+                body,
+                retry_limit: request.retry_limit.unwrap_or(10),
+            });
+
+            for target in request.targets {
+                let target_id = generator.next().unwrap();
+
+                my_requests.push(Request {
                     context: context.clone(),
                     retry_count: 0,
                     target,
-                })
-                .await
-                .expect("Failed to send Request");
+                    identity: format!("{queuing_id}#{request_id}#{target_id}"),
+                });
+            }
         }
+
+        my_requests
+    };
+
+    for request in my_requests {
+        app.sender
+            .send(request)
+            .await
+            .expect("Failed to send Request");
     }
 
     "OK".into_response()

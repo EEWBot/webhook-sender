@@ -74,6 +74,7 @@ async fn setup_connection(
 }
 
 async fn response_handling(
+    name: &str,
     request: crate::request::Request,
     response: ResponseFuture,
     permit: OwnedSemaphorePermit,
@@ -88,14 +89,16 @@ async fn response_handling(
         }
     };
 
+    let identity = &request.identity;
+
     match response.status() {
         status_code if status_code.is_success() => {
-            tracing::debug!("OK");
+            tracing::debug!("{name} OK");
         }
 
         StatusCode::NOT_FOUND => {
             limiter.tell_notfound(&request.target);
-            tracing::warn!("Not found detected!");
+            tracing::warn!("{name} {identity} Not found detected! Canceled.");
         }
 
         StatusCode::TOO_MANY_REQUESTS => {
@@ -114,7 +117,7 @@ async fn response_handling(
             let retry_after = limiter.tell_ratelimit(&request.target, retry_after);
 
             tracing::warn!(
-                "Ratelimit Configured! (retry_after: {}s)",
+                "{name} {identity} Ratelimit Configured! (retry_after: {}s)",
                 retry_after.as_secs_f32()
             );
 
@@ -125,16 +128,22 @@ async fn response_handling(
         }
 
         status_code if status_code.is_client_error() => {
-            tracing::warn!("{} Occured. Maybe invalid request.", status_code);
+            tracing::warn!(
+                "{name} {identity} {} Occured. Maybe invalid request. Canceled.",
+                status_code
+            );
         }
 
         status_code if status_code.is_server_error() => {
-            tracing::warn!("{} Occured. Maybe server error. Retrying...", status_code);
+            tracing::warn!(
+                "{name} {identity} {} Occured. Maybe server error. Retrying...",
+                status_code
+            );
             retry_tx.send(request.into_retry()).await.unwrap();
         }
 
         status_code => {
-            tracing::error!("Unknown StatusCode {}", status_code);
+            tracing::warn!("{name} {identity} Unknown StatusCode {}", status_code);
         }
     }
 
@@ -144,6 +153,7 @@ async fn response_handling(
 }
 
 pub async fn sender(
+    name: &'static str,
     from: SocketAddrV4,
     to: SocketAddrV4,
     request_rx: JobReceiver,
@@ -156,7 +166,7 @@ pub async fn sender(
 
     let mut ping_pong = connection.ping_pong().unwrap();
 
-    tracing::info!("Connection established!");
+    tracing::info!("{name} Connection established!");
 
     tokio::spawn(async move {
         // The error handled by request sender and response handler.
@@ -179,6 +189,7 @@ pub async fn sender(
         tokio::select! {
             request = request_rx.recv() => {
                 let request = request.unwrap();
+                let identity = &request.identity;
 
                 match limiter.current(&request) {
                     Status::Ratelimited(retry_after) => {
@@ -192,11 +203,11 @@ pub async fn sender(
                         continue;
                     },
                     Status::Known404 => {
-                        tracing::warn!("Known 404 target detected");
+                        tracing::warn!("{name} {identity} Known 404 target detected. Cacnceled.");
                         continue;
                     },
                     Status::RetryLimitReached => {
-                        tracing::warn!("Retry limit reached");
+                        tracing::warn!("{name} {identity} Retry limit reached. Canceled.");
                         continue;
                     },
                     Status::Pass => (),
@@ -213,31 +224,33 @@ pub async fn sender(
                 let (response, mut respond) = match client.send_request(h2_header, false) {
                     Ok(v) => v,
                     Err(e) => {
+                        let identity = identity.to_string();
                         retry_tx.send(request.into_retry()).await.unwrap();
-                        return Err(e).context("Failed to send Request Header, Retrying...");
+                        return Err(e).with_context(|| format!("{identity} Failed to send Request Header, Retrying..."));
                     },
                 };
 
                 respond.reserve_capacity(h2_body.len());
 
                 if let Err(e) = respond.send_data(h2_body, true) {
+                    let identity = identity.to_string();
                     retry_tx.send(request.into_retry()).await.unwrap();
-                    return Err(e).context("Failed to send Request Body, Retrying...");
+                    return Err(e).with_context(|| format!("{identity} Failed to send Request Body, Retrying..."));
                 };
 
                 let retry_tx = retry_tx.clone();
 
                 tokio::spawn(async move {
-                    response_handling(request, response, permit, retry_tx, limiter).await
+                    response_handling(name, request, response, permit, retry_tx, limiter).await
                 });
 
                 if last_request {
-                    tracing::info!("Reached to cloudflare HTTP/2 limit. Connection will be closed.");
+                    tracing::info!("{name} Reached to cloudflare HTTP/2 limit. Connection will be closed.");
                     return Ok(());
                 }
             },
             _ = tokio::time::sleep(Duration::from_secs(30)) => {
-                tracing::info!("ping");
+                tracing::debug!("{name} ping");
                 let ping = h2::Ping::opaque();
 
                 ping_pong.ping(ping).await.context("Failed to send ping")?;
@@ -247,6 +260,7 @@ pub async fn sender(
 }
 
 pub async fn sender_loop(
+    name: &'static str,
     from: SocketAddrV4,
     to: SocketAddrV4,
     request_rx: JobReceiver,
@@ -254,9 +268,18 @@ pub async fn sender_loop(
     limiter: &'static Limiter,
 ) -> ! {
     loop {
-        match sender(from, to, request_rx.clone(), retry_tx.clone(), limiter).await {
-            Ok(()) => tracing::info!("Sender is closed normally, restarting..."),
-            Err(e) => tracing::info!("Sender is closed unexpectedly {e:?}, restarting..."),
+        match sender(
+            name,
+            from,
+            to,
+            request_rx.clone(),
+            retry_tx.clone(),
+            limiter,
+        )
+        .await
+        {
+            Ok(()) => tracing::info!("{name} Sender is closed normally, restarting..."),
+            Err(e) => tracing::info!("{name} Sender is closed unexpectedly {e:?}, restarting..."),
         }
     }
 }

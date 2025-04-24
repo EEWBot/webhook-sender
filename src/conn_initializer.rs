@@ -33,6 +33,7 @@ pub async fn initialize(
     retry_ips: &[Ipv4Addr],
     sender_ips: &[Ipv4Addr],
     multiplier: u8,
+    rty_multiplier: u8,
 ) -> AHResult<(JobSender, &'static Limiter)> {
     let target_ips = query_discord_ips().await?;
 
@@ -56,7 +57,7 @@ pub async fn initialize(
     let (retry_tx, retry_rx) = async_channel::unbounded();
     let (tx, rx) = async_channel::unbounded();
 
-    for _ in 0..multiplier {
+    for sock_no in 0..multiplier {
         for from in &sender_socks {
             for to in &target_socks {
                 let rx = rx.clone();
@@ -65,11 +66,14 @@ pub async fn initialize(
                 let to = *to;
 
                 tokio::spawn(async move {
-                    crate::conn::sender_loop(from, to, rx, tx, limiter).await;
+                    let name = &*format!("C{sock_no} {from}-{to}").leak();
+                    crate::conn::sender_loop(name, from, to, rx, tx, limiter).await;
                 });
             }
         }
+    }
 
+    for sock_no in 0..rty_multiplier {
         for from in &retry_socks {
             for to in &target_socks {
                 let rx = retry_rx.clone();
@@ -78,7 +82,8 @@ pub async fn initialize(
                 let to = *to;
 
                 tokio::spawn(async move {
-                    crate::conn::sender_loop(from, to, rx, tx, limiter).await;
+                    let name = &*format!("R{sock_no} {from}-{to}").leak();
+                    crate::conn::sender_loop(name, from, to, rx, tx, limiter).await;
                 });
             }
         }
