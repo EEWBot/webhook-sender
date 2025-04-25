@@ -74,7 +74,7 @@ jobs:
       - name: release build
         run: cargo build --release
 
-  docker:
+  docker_build:
     continue-on-error: false
     strategy:
       fail-fast: false
@@ -145,10 +145,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  merge:
+  docker_merge:
     runs-on: ubuntu-24.04
     needs:
-      - build
+      - docker_build
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4.3.0
