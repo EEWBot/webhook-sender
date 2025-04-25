@@ -8,6 +8,7 @@ mod discord;
 mod limiter;
 mod request;
 mod web;
+mod namesgenerator;
 
 #[derive(Debug, Parser)]
 struct Cli {

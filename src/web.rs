@@ -10,7 +10,6 @@ use axum::{
     routing::{get, post},
 };
 use bytes::Bytes;
-use names::Generator;
 use serde::Deserialize;
 use tokio::net::TcpListener;
 
@@ -37,14 +36,14 @@ async fn notfounds(State(app): State<AppState>) -> Json<Vec<String>> {
 #[axum::debug_handler]
 async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>) -> Response {
     let my_requests = {
-        let mut generator = Generator::default();
+        let mut rng = rand::rng();
 
-        let queuing_id = generator.next().unwrap();
+        let queuing_id = crate::namesgenerator::generate(&mut rng);
 
         let mut my_requests = vec![];
 
         for request in requests {
-            let request_id = generator.next().unwrap();
+            let request_id = crate::namesgenerator::generate(&mut rng);
             tracing::info!(
                 "{queuing_id}#{request_id} Queuing {} targets",
                 request.targets.len()
@@ -58,7 +57,7 @@ async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>
             });
 
             for target in request.targets {
-                let target_id = generator.next().unwrap();
+                let target_id = crate::namesgenerator::generate(&mut rng);
 
                 my_requests.push(Request {
                     context: context.clone(),

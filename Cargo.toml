@@ -12,7 +12,6 @@ clap = { version = "4.5.37", features = ["derive", "env"] }
 h2 = "0.4.9"
 hickory-resolver = { version = "0.25.1", features = ["tokio"] }
 http = "1.3.1"
-names = "0.14.0"
 once_cell = "1.21.3"
 papaya = "0.2.1"
 rand = "0.9.1"
@@ -23,3 +22,5 @@ tokio-rustls = "0.26.2"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 webpki-roots = "0.26.8"
+
+justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }
