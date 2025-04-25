@@ -28,6 +28,18 @@ impl Request {
 
 impl Drop for Context {
     fn drop(&mut self) {
-        tracing::info!("Done! {}", self.identity);
+        tracing::info!("{} Sent!", self.identity);
+    }
+}
+
+impl Drop for Request {
+    fn drop(&mut self) {
+        let count = Arc::strong_count(&self.context);
+        match count {
+            1000 | 100 | 10 => {
+                tracing::info!("{} Last {count: >4}! ", self.context.identity);
+            },
+            _ => {},
+        }
     }
 }

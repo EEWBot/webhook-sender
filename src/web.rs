@@ -45,7 +45,10 @@ async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>
 
         for request in requests {
             let request_id = generator.next().unwrap();
-            tracing::info!("Queuing {queuing_id}#{request_id}");
+            tracing::info!(
+                "{queuing_id}#{request_id} Queuing {} targets",
+                request.targets.len()
+            );
 
             let body = Bytes::from(request.body.to_string().into_bytes());
             let context = Arc::new(Context {
