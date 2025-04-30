@@ -20,7 +20,104 @@ env:
   REGISTRY_IMAGE: ghcr.io/eewbot/webhook-sender
 
 jobs:
-  rust:
+  release_linux:
+    if: ${{ github.event_name != 'pull_request' }}
+    continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ghimage: ubuntu-24.04
+            os: linux
+            arch: x86_64
+            target: x86_64-unknown-linux-gnu
+            output: webhook-sender
+
+          - ghimage: ubuntu-24.04-arm
+            os: linux
+            arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            output: webhook-sender
+
+          - ghimage: ubuntu-24.04
+            os: windows
+            arch: x86_64
+            target: x86_64-pc-windows-gnu
+            output: webhook-sender.exe
+
+    permissions:
+      contents: write
+
+    runs-on: ${{ matrix.ghimage }}
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          submodules: true
+
+      - if: ${{ matrix.target == 'x86_64-pc-windows-gnu' }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Install cargo license
+        run: |
+          cargo install cargo-license
+
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
+
+      - name: Build
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          cargo build --release --target $TARGET
+
+      - name: Create CREDITS file
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          cargo license \
+            --authors \
+            --do-not-bundle \
+            --avoid-dev-deps \
+            --filter-platform $TARGET \
+              > CREDITS
+
+      - name: Make release file
+        env:
+          TARGET: ${{ matrix.target }}
+          OUTPUT: ${{ matrix.output }}
+        run: |
+          DIR_NAME="${{ env.PROJ_NAME }}-${{ matrix.os }}-${{ matrix.arch }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
+          mkdir "$DIR_NAME"
+          cp ./target/$TARGET/release/$OUTPUT "$DIR_NAME/"
+          cp ./LICENSE "$DIR_NAME/"
+          cp ./CREDITS "$DIR_NAME/"
+          cp ./README.md "$DIR_NAME/"
+          tar cvf "$DIR_NAME.tar.gz" "$DIR_NAME/"
+
+      - name: pre-release
+        uses: softprops/action-gh-release@v2.2.2
+        if: "! startsWith(github.ref, 'refs/tags/')"
+        with:
+          tag_name: nightly-${{ github.sha }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            *.tar.gz
+
+      - name: tagged-release
+        uses: softprops/action-gh-release@v2.2.2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          fail_on_unmatched_files: true
+          files: |
+            *.tar.gz
+
+
+  clippy_and_test:
     continue-on-error: false
     strategy:
       fail-fast: false
