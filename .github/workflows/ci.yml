@@ -18,6 +18,7 @@ env:
   CARGO_INCREMENTAL: 0
   RUST_CACHE_VERSION: v1
   REGISTRY_IMAGE: ghcr.io/eewbot/webhook-sender
+  PROJ_NAME: webhook-sender
 
 jobs:
   release_linux:
