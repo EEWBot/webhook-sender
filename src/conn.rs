@@ -98,7 +98,7 @@ async fn response_handling(
 
         StatusCode::NOT_FOUND => {
             limiter.tell_notfound(&request.target);
-            tracing::warn!("{name} {identity} Not found detected! Canceled.");
+            tracing::warn!("{name} {identity} 404 detected! Canceled.");
         }
 
         StatusCode::TOO_MANY_REQUESTS => {

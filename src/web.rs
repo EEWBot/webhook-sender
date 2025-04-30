@@ -29,8 +29,21 @@ struct WebRequest {
     retry_limit: Option<usize>,
 }
 
-async fn notfounds(State(app): State<AppState>) -> Json<Vec<String>> {
+async fn get_notfounds(State(app): State<AppState>) -> Json<Vec<String>> {
     Json(app.limiter.notfounds())
+}
+
+async fn delete_notfounds(
+    State(app): State<AppState>,
+    Json(targets): Json<Vec<String>>,
+) -> Response {
+    tokio::spawn(async move {
+        tracing::info!("Clear {} 404 targets scheduled after 60(s)!", targets.len());
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        app.limiter.clear_notfounds(&targets);
+    });
+
+    "OK".into_response()
 }
 
 #[axum::debug_handler]
@@ -96,7 +109,10 @@ pub async fn run(listen: SocketAddr, sender: JobSender, limiter: &'static Limite
     let app = Router::new()
         .route("/", get(root))
         .route("/api/send", post(send))
-        .route("/api/notfounds", get(notfounds))
+        .route(
+            "/api/notfounds",
+            get(get_notfounds).delete(delete_notfounds),
+        )
         .with_state(AppState { sender, limiter });
 
     let listener = TcpListener::bind(listen)

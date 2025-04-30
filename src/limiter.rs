@@ -45,6 +45,14 @@ impl Limiter {
         self.notfound_set.pin().insert(target.to_string());
     }
 
+    pub fn clear_notfounds<S: AsRef<str>>(&self, targets: &[S]) {
+        let set = self.notfound_set.pin();
+
+        for target in targets {
+            set.remove(target.as_ref());
+        }
+    }
+
     pub fn tell_ratelimit(&self, target: &str, retry_after: f32) -> Duration {
         let delta_time = Duration::from_secs_f32(retry_after);
         let limit_to = Instant::now() + delta_time;
