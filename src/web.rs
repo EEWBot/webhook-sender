@@ -5,10 +5,14 @@ use anyhow::{Context as _, Result as AHResult};
 use axum::{
     Router,
     extract::{Json, State},
-    http::header::{CONTENT_TYPE, HeaderValue},
+    http::{
+        StatusCode,
+        header::{CONTENT_TYPE, HeaderValue},
+    },
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use axum_extra::TypedHeader;
 use bytes::Bytes;
 use serde::Deserialize;
 use tokio::net::TcpListener;
@@ -20,6 +24,7 @@ use crate::request::{Context, JobSender, Request};
 struct AppState {
     sender: JobSender,
     limiter: &'static Limiter,
+    auth_token: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -29,14 +34,26 @@ struct WebRequest {
     retry_limit: Option<usize>,
 }
 
-async fn get_notfounds(State(app): State<AppState>) -> Json<Vec<String>> {
-    Json(app.limiter.notfounds())
+async fn get_notfounds(
+    State(app): State<AppState>,
+    TypedHeader(token): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
+) -> Response {
+    if token.0.token() != app.auth_token {
+        return (StatusCode::UNAUTHORIZED, "UNAUTHORIZED").into_response();
+    }
+
+    Json(app.limiter.notfounds()).into_response()
 }
 
 async fn delete_notfounds(
     State(app): State<AppState>,
+    TypedHeader(token): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
     Json(targets): Json<Vec<String>>,
 ) -> Response {
+    if token.0.token() != app.auth_token {
+        return (StatusCode::UNAUTHORIZED, "UNAUTHORIZED").into_response();
+    }
+
     tokio::spawn(async move {
         tracing::info!("Clear {} 404 targets scheduled after 60(s)!", targets.len());
         tokio::time::sleep(std::time::Duration::from_secs(60)).await;
@@ -47,7 +64,15 @@ async fn delete_notfounds(
 }
 
 #[axum::debug_handler]
-async fn send(State(app): State<AppState>, Json(requests): Json<Vec<WebRequest>>) -> Response {
+async fn send(
+    State(app): State<AppState>,
+    TypedHeader(token): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
+    Json(requests): Json<Vec<WebRequest>>,
+) -> Response {
+    if token.0.token() != app.auth_token {
+        return (StatusCode::UNAUTHORIZED, "UNAUTHORIZED").into_response();
+    }
+
     let my_requests = {
         let mut rng = rand::rng();
 
@@ -105,7 +130,14 @@ async fn root() -> Response {
         .into_response()
 }
 
-pub async fn run(listen: SocketAddr, sender: JobSender, limiter: &'static Limiter) -> AHResult<()> {
+pub async fn run(
+    listen: SocketAddr,
+    sender: JobSender,
+    limiter: &'static Limiter,
+    auth_token: &str,
+) -> AHResult<()> {
+    let auth_token = auth_token.to_owned();
+
     let app = Router::new()
         .route("/", get(root))
         .route("/api/send", post(send))
@@ -113,7 +145,11 @@ pub async fn run(listen: SocketAddr, sender: JobSender, limiter: &'static Limite
             "/api/notfounds",
             get(get_notfounds).delete(delete_notfounds),
         )
-        .with_state(AppState { sender, limiter });
+        .with_state(AppState {
+            sender,
+            limiter,
+            auth_token,
+        });
 
     let listener = TcpListener::bind(listen)
         .await

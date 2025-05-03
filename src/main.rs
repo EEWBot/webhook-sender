@@ -24,6 +24,9 @@ struct Cli {
     #[clap(long, env, default_value_t = 1)]
     rty_multiplier: u8,
 
+    #[clap(long, env)]
+    auth_token: String,
+
     #[clap(long, env, default_value = "0.0.0.0:3000")]
     listen: SocketAddr,
 }
@@ -50,5 +53,5 @@ async fn main() {
     .await
     .expect("failed to initialize connection");
 
-    web::run(cli.listen, sender, limiter).await.unwrap();
+    web::run(cli.listen, sender, limiter, cli.auth_token).await.unwrap();
 }
