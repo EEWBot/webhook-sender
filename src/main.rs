@@ -53,5 +53,5 @@ async fn main() {
     .await
     .expect("failed to initialize connection");
 
-    web::run(cli.listen, sender, limiter, cli.auth_token).await.unwrap();
+    web::run(cli.listen, sender, limiter, &cli.auth_token).await.unwrap();
 }
