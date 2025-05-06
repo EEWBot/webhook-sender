@@ -42,14 +42,7 @@ async fn get_notfounds(
         return (StatusCode::UNAUTHORIZED, "UNAUTHORIZED").into_response();
     }
 
-    Json(
-        app.limiter
-            .notfounds()
-            .into_iter()
-            .map(|uri| uri.to_string())
-            .collect::<Vec<_>>(),
-    )
-    .into_response()
+    Json(app.limiter.notfounds()).into_response()
 }
 
 async fn delete_notfounds(
