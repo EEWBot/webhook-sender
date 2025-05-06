@@ -214,7 +214,25 @@ pub async fn sender(
                 }
 
 
-                let mut h2_header = Request::builder().method(Method::POST).uri(&request.target).body(()).unwrap();
+                let mut target_uri = request.target.clone();
+
+                // Copy query string w/o "wait"
+                let mut target_uri_query: Vec<(String, String)> = target_uri.query_pairs().filter_map(|(k, v)|
+                    if k == "wait" {
+                        None
+                    } else {
+                        Some((k.to_string(), v.to_string()))
+                    }
+                ).collect();
+
+                // Add wait=true
+                target_uri_query.push(("wait".to_string(), "true".to_string()));
+
+                // Write-back to target
+                target_uri.query_pairs_mut().clear().extend_pairs(target_uri_query.iter());
+
+                let mut h2_header = Request::builder().method(Method::POST).uri(target_uri.as_str()).body(()).unwrap();
+
                 *h2_header.headers_mut() = headers.clone();
 
                 let h2_body = request.context.body.clone();

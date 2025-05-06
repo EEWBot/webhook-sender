@@ -23,6 +23,7 @@ tokio = { version = "1.44.2", features = ["net", "rt-multi-thread", "sync", "tim
 tokio-rustls = "0.26.2"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
+url = { version = "2.5.4", features = ["serde"] }
 webpki-roots = "0.26.8"
 
 justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }

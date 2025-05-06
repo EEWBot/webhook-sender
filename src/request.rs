@@ -15,7 +15,7 @@ pub struct Context {
 pub struct Request {
     pub context: Arc<Context>,
     pub retry_count: usize,
-    pub target: String,
+    pub target: url::Url,
     pub identity: String,
 }
 

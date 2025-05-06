@@ -29,7 +29,7 @@ struct AppState {
 
 #[derive(Clone, Debug, Deserialize)]
 struct WebRequest {
-    targets: Vec<String>,
+    targets: Vec<url::Url>,
     body: serde_json::Value,
     retry_limit: Option<usize>,
 }
@@ -48,7 +48,7 @@ async fn get_notfounds(
 async fn delete_notfounds(
     State(app): State<AppState>,
     TypedHeader(token): TypedHeader<headers::Authorization<headers::authorization::Bearer>>,
-    Json(targets): Json<Vec<String>>,
+    Json(targets): Json<Vec<url::Url>>,
 ) -> Response {
     if token.0.token() != app.auth_token {
         return (StatusCode::UNAUTHORIZED, "UNAUTHORIZED").into_response();
