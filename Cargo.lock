@@ -1239,9 +1239,9 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "papaya"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af228bb1296c9b044ee75e2a2325409c2d899bcfcc6150e5e41f148e0a87dd20"
+checksum = "f92dd0b07c53a0a0c764db2ace8c541dc47320dad97c2200c2a637ab9dd2328f"
 dependencies = [
  "equivalent",
  "seize",
