@@ -7,7 +7,7 @@ edition = "2024"
 anyhow = "1.0.98"
 async-channel = "2.3.1"
 axum = { version = "0.8.3", features = ["macros"] }
-axum-extra = { version = "0.10.1", features = ["typed-header"] }
+axum-extra = { version = "0.12.0", features = ["typed-header"] }
 bytes = "1.10.1"
 clap = { version = "4.5.37", features = ["derive", "env"] }
 h2 = "0.4.9"
